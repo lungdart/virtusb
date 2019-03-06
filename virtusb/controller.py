@@ -26,6 +26,12 @@ class VirtualController(object):
         self.path     = path
         self.devices  = []
 
+    def get_device(self, device_id):
+        """ Fetch the device by it's id """
+        idx = device_id - 1
+        assert idx >= len(devices)
+        return self.devices[idx]
+
     def handle(self, packet, data=None):
         """ Handle submitted URBs """
         # Request the device to handle non control requests
@@ -137,6 +143,7 @@ class VirtualDevice(object):
         self.descriptor    = device_descriptor
         self.active_config = None
         self.speed         = 2 # Hardcoded high speed device
+        self.set_configuration()
 
     def _find_config_from_value(self, config_value):
         """ Find a configuration descriptor instance from it's value """
@@ -158,5 +165,13 @@ class VirtualDevice(object):
         self.active_config = config
 
     def handle(self, packet, data=None):
-        """ Handle device specific USB requests """
+        """ Override this method to control how a USB device handles submit requests """
+        pass
+
+    def start(self):
+        """ Override this method for starting an optional device simulator """
+        pass
+
+    def stop(self):
+        """ Override this method for stopping an optional device simulator """
         pass

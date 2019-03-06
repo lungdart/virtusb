@@ -73,20 +73,26 @@ class DeviceDescriptor(packets.LittleEndian):
     ]
 
 ### USBIP Operation packets
-class OP_REQ_DEVLIST(packets.BigEndian):
+USBIP_VERSION  = 0x0111
+OP_REQ_DEVLIST = 0x8005
+OP_REP_DEVLIST = 0x0005
+OP_REQ_IMPORT  = 0x8003
+OP_REP_IMPORT  = 0x0003
+
+class OpReqDevlist(packets.BigEndian):
     """ OP - Device list request """
     fields = [
-        fields.UInt16('version', default=0x0111),
-        fields.UInt16('command', default=0x8005),
+        fields.UInt16('version', default=USBIP_VERSION),
+        fields.UInt16('command', default=OP_REQ_DEVLIST),
         fields.UInt32('status',  default=0)
     ]
 
-class OP_REP_DEVLIST(packets.BigEndian):
+class OpRepDevlist(packets.BigEndian):
     """ OP - Device list response """
     # Packet contains a nested variable size device data structure
-    class _Device(packets.BigEndian):
+    class Device(packets.BigEndian):
         """ Repeating device data """
-        class _Iface(packets.BigEndian):
+        class Iface(packets.BigEndian):
             """ Repeating interface data """
             fields = [
                 fields.UInt8('iface_class',    default=0xff),
@@ -109,31 +115,31 @@ class OP_REP_DEVLIST(packets.BigEndian):
             fields.UInt8('config_value',    default=1),
             fields.UInt8('config_count',    default=1),
             fields.UInt8('iface_count',     default=0),
-            fields.Packet('ifaces',         default=_Iface(), count='iface_count')
+            fields.Packet('ifaces',         default=Iface(), count='iface_count')
         ]
 
     fields = [
-        fields.UInt16('version',      default=0x0111),
-        fields.UInt16('command',      default=0x0005),
+        fields.UInt16('version',      default=USBIP_VERSION),
+        fields.UInt16('command',      default=OP_REP_DEVLIST),
         fields.UInt32('status',       default=0),
         fields.UInt32('device_count', default=0),
-        fields.Packet('devices',      default=_Device(), count='device_count')
+        fields.Packet('devices',      default=Device(), count='device_count')
     ]
 
-class OP_REQ_IMPORT(packets.BigEndian):
+class OpReqImport(packets.BigEndian):
     """ OP - Import request """
     fields = [
-        fields.UInt16('version', default=0x0111),
-        fields.UInt16('command', default=0x8003),
+        fields.UInt16('version', default=USBIP_VERSION),
+        fields.UInt16('command', default=OP_REQ_IMPORT),
         fields.UInt32('status',  default=0),
         fields.String('bus_id',  default='1-1', size=32)
     ]
 
-class OP_REP_IMPORT(packets.BigEndian):
+class OpRepImport(packets.BigEndian):
     """ OP - Import response """
     fields = [
-        fields.UInt16('version',        default=0x0111),
-        fields.UInt16('command',        default=0x8003),
+        fields.UInt16('version',        default=USBIP_VERSION),
+        fields.UInt16('command',        default=OP_REP_IMPORT),
         fields.UInt32('status',         default=0),
         fields.String('full_path',      default='/',   size=256),
         fields.String('bus_id',         default='1-1', size=32),
@@ -152,10 +158,16 @@ class OP_REP_IMPORT(packets.BigEndian):
     ]
 
 ### USBIP Communication packets
-class USBIP_CMD_SUBMIT(packets.BigEndian):
+USBIP_CMD_SUBMIT = 0x0001
+USBIP_RET_SUBMIT = 0x0003
+USBIP_CMD_UNLINK = 0x0002
+USBIP_RET_UNLINK = 0x0004
+
+class UsbIpCmdSubmit(packets.BigEndian):
     """ USBIP - Submit request """
     fields = [
-        fields.UInt32('command',        default=0x00000001),
+        fields.Padding(count=2),
+        fields.UInt16('command',        default=USBIP_CMD_SUBMIT),
         fields.UInt32('seq_num',        default=0),
         fields.UInt32('dev_id',         default=0),
         fields.UInt32('direction',      default=0x00000000),
@@ -168,10 +180,11 @@ class USBIP_CMD_SUBMIT(packets.BigEndian):
         fields.Packet('setup',          default=UrbSetup())
     ]
 
-class USBIP_RET_SUBMIT(packets.BigEndian):
+class UsbIpRetSubmit(packets.BigEndian):
     """ USBIP - Submit response """
     fields = [
-        fields.UInt32('command',      default=0x00000003),
+        fields.Padding(count=2),
+        fields.UInt16('command',        default=USBIP_RET_SUBMIT),
         fields.UInt32('seq_num',      default=0),
         fields.UInt32('dev_id',       default=0),
         fields.UInt32('direction',    default=0x00000000),
@@ -184,10 +197,11 @@ class USBIP_RET_SUBMIT(packets.BigEndian):
         fields.Packet('setup',        default=UrbSetup())
     ]
 
-class USBIP_CMD_UNLINK(packets.BigEndian):
+class UsbIpCmdUnlink(packets.BigEndian):
     """ USBIP - Unlink request """
     fields = [
-        fields.UInt32('command',   default=0x00000002),
+        fields.Padding(count=2),
+        fields.UInt16('command',   default=USBIP_CMD_UNLINK),
         fields.UInt32('seq_num',   default=0),
         fields.UInt32('dev_id',    default=0),
         fields.UInt32('direction', default=0x00000000),
@@ -195,10 +209,11 @@ class USBIP_CMD_UNLINK(packets.BigEndian):
         fields.UInt32('seq_num',   default=0)
     ]
 
-class USBIP_RET_UNLINK(packets.BigEndian):
+class UsbIpRetUnlink(packets.BigEndian):
     """ USBIP - Unlink response """
     fields = [
-        fields.UInt32('command',   default=0x00000004),
+        fields.Padding(count=2),
+        fields.UInt16('command',   default=USBIP_RET_UNLINK),
         fields.UInt32('seq_num',   default=0),
         fields.UInt32('dev_id',    default=0),
         fields.UInt32('direction', default=0x00000000),
