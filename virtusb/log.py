@@ -1,5 +1,6 @@
 """ VirtUSB package """
 import logging
+import logging.config
 import six
 
 # Configure the logger for custom formatting
@@ -23,7 +24,7 @@ class ColoredFormatter(logging.Formatter):
         if six.PY2:
             self._fmt = fmt
         else:
-            self._style._fmt = fmt
+            self._style._fmt = fmt #pylint: disable=protected-access
         return super(ColoredFormatter, self).format(record)
 
 # Set the logging configuration to use the custom formatter

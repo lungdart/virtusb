@@ -1,5 +1,5 @@
 """ USB Descriptor Classes """
-#pylint: disable=C0326,R0902,R0903
+#pylint: disable=C0326,R0205,R0902,R0903
 import copy
 
 class Device(object):

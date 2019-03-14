@@ -1,12 +1,12 @@
 """ USBIP TCP Server """
-#pylint: disable=C0326,W1202
+#pylint: disable=C0326,W1202,R0205
 
-import SocketServer
 import socket
 import signal
 import struct
 from threading import Thread
 from subprocess import Popen, PIPE
+from six.moves.socketserver import ThreadingTCPServer, BaseRequestHandler
 from virtusb import log, packets
 
 LOGGER = log.get_logger()
@@ -19,6 +19,7 @@ class UsbIpServer(object):
         self.keep_alive = False
         self.server     = None
         self.thread     = None
+        self.ports      = {}
 
     def interrupt_handler(self, *args): #pylint: disable=unused-argument
         """ Handle interrupt signals """
@@ -27,12 +28,13 @@ class UsbIpServer(object):
 
     def start(self, bind_ip='0.0.0.0', bind_port=3240):
         """ Start the server """
-        LOGGER.info('Starting USBIP server on {}:{}'.format('bind_ip', bind_port))
+        LOGGER.info('Starting USBIP server on {}:{}'.format(bind_ip, bind_port))
 
         # Configure the socket server
-        SocketServer.ThreadingTCPServer.allow_reuse_address = True
-        self.server     = SocketServer.ThreadingTCPServer((bind_ip, bind_port), UsbIpHandler)
-        self.keep_alive = True
+        ThreadingTCPServer.allow_reuse_address = True
+        self.server = ThreadingTCPServer((bind_ip, bind_port), UsbIpHandler)
+        self.server.controller = self.controller
+        self.server.keep_alive = True
 
         # Start the server in it's own thread
         signal.signal(signal.SIGINT, self.interrupt_handler)
@@ -77,6 +79,8 @@ class UsbIpServer(object):
             msg += '\n{}\n{}'.format(out, err)
             LOGGER.fatal(msg)
             raise RuntimeError(msg)
+        new_port = len(self.ports)
+        self.ports[new_port] = device_id
 
     def detach(self, port): #pylint: disable=no-self-use
         """ Detach a single device with USBIP by port number """
@@ -101,10 +105,10 @@ class UsbIpServer(object):
 
     def detach_all(self):
         """ Detach all devices with USBIP """
-        for port in range(len(self.controller.devices)):
+        for port,_ in self.ports:
             self.detach(port)
 
-class UsbIpHandler(SocketServer.BaseRequestHandler):
+class UsbIpHandler(BaseRequestHandler):
     """ Request handler for the USBIP server """
     def handle(self):
         """ Handle packets """
@@ -153,7 +157,7 @@ class UsbIpHandler(SocketServer.BaseRequestHandler):
             out_raw = response.pack()
             if data:
                 out_raw += data
-            self.request.send_all(out_raw)
+            self.request.sendall(out_raw)
             LOGGER.debug('Sent response ({}B)'.format(len(raw)))
 
     def pkt_op_req_devlist(self, packet):
@@ -161,14 +165,14 @@ class UsbIpHandler(SocketServer.BaseRequestHandler):
         LOGGER.debug('Received OP_REQ_DEVLIST')
 
         # Prepare an empty response packet
-        response = packets.OpRepDevlist(verison=packet['version'])
+        response = packets.OpRepDevlist(version=packet['version'])
 
         # Create a list of devices in the controller, including their interfaces
         controller = self.server.controller
         dev_list = []
         for idx, device in enumerate(controller.devices):
             iface_list = []
-            for iface in device.interfaces:
+            for iface in device.active_config.interfaces:
                 iface_list.append(packets.OpRepDevlist.Device.Iface(
                     iface_class    = iface.bInterfaceClass,
                     iface_subclass = iface.bInterfaceSubClass,
@@ -184,7 +188,7 @@ class UsbIpHandler(SocketServer.BaseRequestHandler):
                 speed           = device.speed,
                 vendor_id       = device.descriptor.idVendor,
                 product_id      = device.descriptor.idProduct,
-                device_version  = device.descritpro.bcdDevice,
+                device_version  = device.descriptor.bcdDevice,
                 device_class    = device.descriptor.bDeviceClass,
                 device_subclass = device.descriptor.bDeviceSubClass,
                 device_protocol = device.descriptor.bDeviceProtocol,
@@ -225,19 +229,19 @@ class UsbIpHandler(SocketServer.BaseRequestHandler):
         device.start()
 
         # Fill out response with the devices data
-        response['full_path']       = controller.path + bus_id,
-        response['bus_id']          = bus_id,
-        response['bus_no']          = bus_no,
-        response['device_no']       = device_no,
-        response['device_speed']    = device.speed,
-        response['vendor_id']       = device.descriptor.idVendor,
-        response['product_id']      = device.descriptor.idProduct,
-        response['device_version']  = device.descriptor.bcdDevice,
-        response['device_class']    = device.descriptor.bDeviceClass,
-        response['device_subclass'] = device.descriptor.bDeviceSubClass,
-        response['device_protocol'] = device.descriptor.bDeviceProtocol,
-        response['config_count']    = device.descriptor.bNumConfigurations,
-        response['config_value']    = device.active_config.bConfigurationValue,
+        response['full_path']       = controller.path + bus_id
+        response['bus_id']          = bus_id
+        response['bus_no']          = bus_no
+        response['device_no']       = device_no
+        response['device_speed']    = device.speed
+        response['vendor_id']       = device.descriptor.idVendor
+        response['product_id']      = device.descriptor.idProduct
+        response['device_version']  = device.descriptor.bcdDevice
+        response['device_class']    = device.descriptor.bDeviceClass
+        response['device_subclass'] = device.descriptor.bDeviceSubClass
+        response['device_protocol'] = device.descriptor.bDeviceProtocol
+        response['config_count']    = device.descriptor.bNumConfigurations
+        response['config_value']    = device.active_config.bConfigurationValue
         response['iface_count']     = device.active_config.bNumInterfaces
         return response, None
 
@@ -259,8 +263,8 @@ class UsbIpHandler(SocketServer.BaseRequestHandler):
         # Send the request to the controller to handle
         try:
             out_data = self.server.controller.handle(packet, in_data)
-        except RuntimeError, err:
-            LOGGER.error('Error handling USB_CMD_SUBMIT: {}'.format(str(err)))
+        except RuntimeError as error:
+            LOGGER.error('Error handling USB_CMD_SUBMIT: {}'.format(str(error)))
             response['status'] = 1
             return response, None
 

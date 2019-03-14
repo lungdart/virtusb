@@ -1,9 +1,10 @@
+""" Setup script """
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# pylint: disable=C0326
 
 # Note: To use the 'upload' functionality of this file, you must:
 #   $ pip install twine
-
 import io
 import os
 import sys
@@ -11,25 +12,17 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'virtusb'
-DESCRIPTION = 'Virtual USB devices using USBIP'
-URL = 'https://github.com/lungdart/virtusb'
-EMAIL = 'dev@lungdart.net'
-AUTHOR = 'lungdart'
+NAME            = 'virtusb'
+DESCRIPTION     = 'Virtual USB devices using USBIP'
+URL             = 'https://github.com/lungdart/virtusb'
+EMAIL           = 'dev@lungdart.net'
+AUTHOR          = 'lungdart'
 REQUIRES_PYTHON = '>=2.7.0'
-VERSION = '0.1'
-
-# What packages are required for this module to be executed?
-REQUIRED = ['future', 'six', 'packeteer']
-
-# What packages are optional?
-EXTRAS = {
-    # 'fancy feature': ['django'],
-}
-
-# Trove classifiers
-# Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
-CLASSIFIERS = [
+VERSION         = '0.1'
+LICENSE         = 'MIT'
+REQUIRED        = ['future', 'six', 'packeteer']
+EXTRAS          = {}
+CLASSIFIERS     = [
     'License :: OSI Approved :: MIT License',
     'Natural Language :: English',
     'Operating System :: POSIX',
@@ -46,63 +39,55 @@ CLASSIFIERS = [
     'Intended Audience :: Developers',
 ]
 
-# The rest you shouldn't have to touch too much :)
-# ------------------------------------------------
-# Except, perhaps the License and Trove Classifiers!
-# If you do change the License, remember to change the Trove Classifier for that!
 
-here = os.path.abspath(os.path.dirname(__file__))
+def working_directory():
+    """ Get the working directory """
+    path = os.path.abspath(os.path.dirname(__file__))
+    return path
 
-# Import the README and use it as the long-description.
-# Note: this will only work if 'README.md' is present in your MANIFEST.in file!
-try:
-    with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
-        long_description = '\n' + f.read()
-except:
-    long_description = DESCRIPTION
-
-# Load the package's __version__.py module as a dictionary.
-about = {}
-if not VERSION:
-    project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
-    with open(os.path.join(here, project_slug, '__version__.py')) as f:
-        exec(f.read(), about)
-else:
-    about['__version__'] = VERSION
-
+def get_long_description(readme='README.md'):
+    """ Generates a long description from README.md """
+    working_dir = os.path.abspath(os.path.dirname(__file__))
+    readme_path = os.path.join(working_dir, readme)
+    try:
+        with io.open(readme_path, encoding='utf8') as readme_file:
+            result = '\n' + readme_file.read()
+    except Exception: #pylint: disable=broad-except
+        result = DESCRIPTION
+    return result
 
 class UploadCommand(Command):
     """Support setup.py upload."""
-
     description = 'Build and publish the package.'
     user_options = []
 
     @staticmethod
-    def status(s):
+    def status(message):
         """Prints things in bold."""
-        print('\033[1m{0}\033[0m'.format(s))
+        print('\033[1m{0}\033[0m'.format(message))
 
     def initialize_options(self):
-        pass
+        """ Not used """
 
     def finalize_options(self):
-        pass
+        """ Not used """
 
     def run(self):
+        """ Clean, build, tag, push, and upload """
         try:
-            self.status('Removing previous builds…')
-            rmtree(os.path.join(here, 'dist'))
+            self.status('Removing previous builds...')
+            rmtree(os.path.join(working_directory(), 'dist'))
         except OSError:
             pass
 
-        self.status('Building Source and Wheel (universal) distribution…')
+        self.status('Building Source and Wheel (universal) distribution...')
         os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
 
-        self.status('Uploading the package to PyPI via Twine…')
+        self.status('Uploading the package to PyPI via Twine...')
         os.system('twine upload dist/*')
 
-        self.status('Pushing git tags…')
-        os.system('git tag v{0}'.format(about['__version__']))
+        self.status('Pushing git tags...')
+        os.system('git tag v{0}'.format(VERSION))
         os.system('git push --tags')
 
         sys.exit()
@@ -110,29 +95,20 @@ class UploadCommand(Command):
 
 # Where the magic happens:
 setup(
-    name=NAME,
-    version=about['__version__'],
-    description=DESCRIPTION,
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    author=AUTHOR,
-    author_email=EMAIL,
-    python_requires=REQUIRES_PYTHON,
-    url=URL,
-    packages=find_packages(exclude=('tests',)),
-    # If your package is a single module, use this instead of 'packages':
-    # py_modules=['mypackage'],
-
-    # entry_points={
-    #     'console_scripts': ['mycli=mymodule:cli'],
-    # },
-    install_requires=REQUIRED,
-    extras_require=EXTRAS,
-    include_package_data=True,
-    license='MIT',
-    classifiers=CLASSIFIERS,
-    # $ setup.py publish support.
-    cmdclass={
-        'upload': UploadCommand,
-    },
+    name                          = NAME,
+    version                       = VERSION,
+    description                   = DESCRIPTION,
+    long_description              = get_long_description(),
+    long_description_content_type = 'text/markdown',
+    author                        = AUTHOR,
+    author_email                  = EMAIL,
+    python_requires               = REQUIRES_PYTHON,
+    url                           = URL,
+    packages                      = find_packages(exclude=('tests',)),
+    install_requires              = REQUIRED,
+    extras_require                = EXTRAS,
+    include_package_data          = True,
+    license                       = LICENSE,
+    classifiers                   = CLASSIFIERS,
+    cmdclass                      = {'upload': UploadCommand}
 )

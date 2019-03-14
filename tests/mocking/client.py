@@ -1,10 +1,10 @@
 """ Mock client to test the USBIP server code base against """
-#pylint: disable=C0326
+#pylint: disable=C0326,R0205
 import copy
 import socket
 import traceback
 from virtusb import packets
-from tests.mocking.dummy_driver import DummyDriver
+from tests.mocking.dummy_device import DummyDriver
 
 class UsbIpClient(object):
     """ Fake USBIP client that has the same command set as the Linux usbip command """
@@ -64,9 +64,10 @@ class UsbIpClient(object):
         raw = self._recv(12)
         assert raw is not None
         response = packets.OpRepDevlist.from_raw(raw, partial=True)
-        assert response['verison'] == request['version']
+        assert response['version'] == request['version']
         assert response['command'] == packets.OP_REP_DEVLIST
         assert response['status']  == 0
+        print("!!!!", repr(response))
 
         devices = []
         for _ in range(response['device_count']):
@@ -96,10 +97,11 @@ class UsbIpClient(object):
 
         return response
 
-    def _submit_handler(self, port,
-                        endpoint=0, direction=0, transfer_flags=0x00000000,
-                        buffer_len=0, request_type=0x00, request=0x00,
-                        value=0x0000, data=None):
+    def _submit_handler( #pylint: disable=too-many-arguments
+            self, port,
+            endpoint=0, direction=0, transfer_flags=0x00000000,
+            buffer_len=0, request_type=0x00, request=0x00,
+            value=0x0000, data=None):
         """ Handle submitting commands to an imported USB device """
         # send the request based off the input arguments
         request = packets.UsbIpCmdSubmit(
@@ -194,7 +196,7 @@ class UsbIpClient(object):
             self._submit_handler(port=new_port, endpoint=0, direction=0x0001,request=0x09)
 
         # Leave the socket open for further device requests
-        except:
+        except Exception: #pylint: disable=broad-except
             self._close()
             traceback.print_exc()
 

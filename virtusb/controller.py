@@ -1,5 +1,5 @@
 """ USB Virtual Controller """
-#pylint: disable=C0326
+#pylint: disable=R0205,C0326
 
 from virtusb import packets
 
@@ -29,7 +29,7 @@ class VirtualController(object):
     def get_device(self, device_id):
         """ Fetch the device by it's id """
         idx = device_id - 1
-        assert idx >= len(devices)
+        assert idx >= len(self.devices)
         return self.devices[idx]
 
     def handle(self, packet, data=None):
@@ -166,12 +166,9 @@ class VirtualDevice(object):
 
     def handle(self, packet, data=None):
         """ Override this method to control how a USB device handles submit requests """
-        pass
 
     def start(self):
         """ Override this method for starting an optional device simulator """
-        pass
 
     def stop(self):
         """ Override this method for stopping an optional device simulator """
-        pass

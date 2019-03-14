@@ -36,7 +36,9 @@ class InterfaceDescriptor(packets.LittleEndian):
         fields.UInt8('bInterfaceSubClass', default=0),
         fields.UInt8('bInterfaceProtocol', default=0),
         fields.UInt8('iInterface',         default=0),
-        fields.Packet('endpoints',         default=EndpointDescriptor(), count='bNumEndpoints')
+        fields.List('endpoints',
+                    fields.Packet(default=EndpointDescriptor()),
+                    size='bNumEndpoints')
     ]
 
 class ConfigurationDescriptor(packets.LittleEndian):
@@ -50,7 +52,9 @@ class ConfigurationDescriptor(packets.LittleEndian):
         fields.UInt8('iConfiguration',      default=0),
         fields.UInt8('bmAttributes',        default=0),
         fields.UInt8('bMaxPower',           default=0),
-        fields.Packet('interfaces',         default=InterfaceDescriptor(), count='bNumInterfaces')
+        fields.List('interfaces',
+                    fields.Packet(default=InterfaceDescriptor()),
+                    size='bNumInterfaces')
     ]
 
 class DeviceDescriptor(packets.LittleEndian):
@@ -115,7 +119,9 @@ class OpRepDevlist(packets.BigEndian):
             fields.UInt8('config_value',    default=1),
             fields.UInt8('config_count',    default=1),
             fields.UInt8('iface_count',     default=0),
-            fields.Packet('ifaces',         default=Iface(), count='iface_count')
+            fields.List('ifaces',
+                        fields.Packet(default=Iface()),
+                        size='iface_count')
         ]
 
     fields = [
@@ -123,7 +129,9 @@ class OpRepDevlist(packets.BigEndian):
         fields.UInt16('command',      default=OP_REP_DEVLIST),
         fields.UInt32('status',       default=0),
         fields.UInt32('device_count', default=0),
-        fields.Packet('devices',      default=Device(), count='device_count')
+        fields.List('devices',
+                    fields.Packet(default=Device()),
+                    size='device_count')
     ]
 
 class OpReqImport(packets.BigEndian):
@@ -166,7 +174,8 @@ USBIP_RET_UNLINK = 0x0004
 class UsbIpCmdSubmit(packets.BigEndian):
     """ USBIP - Submit request """
     fields = [
-        fields.Padding(count=2),
+        fields.Padding(),
+        fields.Padding(),
         fields.UInt16('command',        default=USBIP_CMD_SUBMIT),
         fields.UInt32('seq_num',        default=0),
         fields.UInt32('dev_id',         default=0),
@@ -183,7 +192,8 @@ class UsbIpCmdSubmit(packets.BigEndian):
 class UsbIpRetSubmit(packets.BigEndian):
     """ USBIP - Submit response """
     fields = [
-        fields.Padding(count=2),
+        fields.Padding(),
+        fields.Padding(),
         fields.UInt16('command',        default=USBIP_RET_SUBMIT),
         fields.UInt32('seq_num',      default=0),
         fields.UInt32('dev_id',       default=0),
@@ -200,7 +210,8 @@ class UsbIpRetSubmit(packets.BigEndian):
 class UsbIpCmdUnlink(packets.BigEndian):
     """ USBIP - Unlink request """
     fields = [
-        fields.Padding(count=2),
+        fields.Padding(),
+        fields.Padding(),
         fields.UInt16('command',   default=USBIP_CMD_UNLINK),
         fields.UInt32('seq_num',   default=0),
         fields.UInt32('dev_id',    default=0),
@@ -212,7 +223,8 @@ class UsbIpCmdUnlink(packets.BigEndian):
 class UsbIpRetUnlink(packets.BigEndian):
     """ USBIP - Unlink response """
     fields = [
-        fields.Padding(count=2),
+        fields.Padding(),
+        fields.Padding(),
         fields.UInt16('command',   default=USBIP_RET_UNLINK),
         fields.UInt32('seq_num',   default=0),
         fields.UInt32('dev_id',    default=0),
