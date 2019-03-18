@@ -159,7 +159,7 @@ class OpRepImport(packets.BigEndian):
         fields.UInt16('device_version', default=0),
         fields.UInt8('device_class',    default=0xff),
         fields.UInt8('device_subclass', default=0xff),
-        fields.UInt8('device_proto',    default=0xff),
+        fields.UInt8('device_protocol', default=0xff),
         fields.UInt8('config_value',    default=1),
         fields.UInt8('config_count',    default=1),
         fields.UInt8('iface_count',     default=0)

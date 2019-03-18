@@ -4,9 +4,9 @@
 import socket
 import signal
 import struct
-from threading import Thread
+import threading
 from subprocess import Popen, PIPE
-from six.moves.socketserver import ThreadingTCPServer, BaseRequestHandler
+from six.moves.socketserver import TCPServer, BaseRequestHandler
 from virtusb import log, packets
 
 LOGGER = log.get_logger()
@@ -15,30 +15,37 @@ RECV_TIMEOUT_SEC = 5
 class UsbIpServer(object):
     """ USBIP TCP Server """
     def __init__(self, controller):
-        self.controller = controller
-        self.keep_alive = False
-        self.server     = None
-        self.thread     = None
-        self.ports      = {}
+        self.controller  = controller
+        self.should_stop = threading.Event()
+        self.server      = None
+        self.thread      = None
+        self.ports       = {}
 
-    def interrupt_handler(self, *args): #pylint: disable=unused-argument
+    def _interrupt_handler(self, *args): #pylint: disable=unused-argument
         """ Handle interrupt signals """
         LOGGER.warning('Interrupt signal received (Ctrl+C)')
         self.stop()
+
+    def _serve(self):
+        """ Serve forever, but doesn't ignore timeouts """
+        while not self.should_stop.is_set():
+            self.server.handle_request()
 
     def start(self, bind_ip='0.0.0.0', bind_port=3240):
         """ Start the server """
         LOGGER.info('Starting USBIP server on {}:{}'.format(bind_ip, bind_port))
 
         # Configure the socket server
-        ThreadingTCPServer.allow_reuse_address = True
-        self.server = ThreadingTCPServer((bind_ip, bind_port), UsbIpHandler)
+        TCPServer.allow_reuse_address = True
+        self.server = TCPServer((bind_ip, bind_port), UsbIpHandler)
         self.server.controller = self.controller
-        self.server.keep_alive = True
+        self.server.keep_alive = threading.Event()
+        self.server.keep_alive.set()
 
         # Start the server in it's own thread
-        signal.signal(signal.SIGINT, self.interrupt_handler)
-        self.thread = Thread(target=self.server.serve_forever)
+        signal.signal(signal.SIGINT, self._interrupt_handler)
+        self.should_stop.clear()
+        self.thread = threading.Thread(target=self._serve)
         self.thread.start()
 
     def stop(self):
@@ -49,8 +56,8 @@ class UsbIpServer(object):
         self.detach_all()
 
         # Shutdown the server
-        self.keep_alive = False
-        self.server.shutdown()
+        self.should_stop.set()
+        self.server.keep_alive.clear()
         self.server.server_close()
 
         # Wait for the thread to finish
@@ -114,7 +121,7 @@ class UsbIpHandler(BaseRequestHandler):
         """ Handle packets """
         # Keep the connection open for as long as the client is connected
         self.request.settimeout(RECV_TIMEOUT_SEC)
-        while self.server.keep_alive:
+        while self.server.keep_alive.is_set():
             try:
                 raw = self.request.recv(4)
             # A timeout just means there are no pending packets. restart the
@@ -158,7 +165,7 @@ class UsbIpHandler(BaseRequestHandler):
             if data:
                 out_raw += data
             self.request.sendall(out_raw)
-            LOGGER.debug('Sent response ({}B)'.format(len(raw)))
+            LOGGER.debug('Sent response ({} Bytes)'.format(len(raw)))
 
     def pkt_op_req_devlist(self, packet):
         """ Handle OP_REQ_DEVLIST packets """
@@ -212,12 +219,11 @@ class UsbIpHandler(BaseRequestHandler):
         bus_id = packet['bus_id']
         controller = self.server.controller
         try:
-            parts = bus_id.split('-')
-            bus_no = int(parts[0])
-            if bus_no != controller.bus_no:
-                raise ValueError
+            parts     = bus_id.split('-')
+            bus_no    = int(parts[0])
             device_no = int(parts[1])
-            device = controller.get_device(device_no)
+            device_id = (bus_no << 16) + device_no
+            device    = controller.get_device(device_id)
 
         # Invalid bus ID's are non fatal errors, respond with a bad status
         except (ValueError, IndexError):
@@ -255,7 +261,7 @@ class UsbIpHandler(BaseRequestHandler):
 
         # Fetch any additional data that came with the request
         buffer_len = packet['buffer_len']
-        if packet['direction'] == 1 and buffer_len > 0:
+        if packet['direction'] == 0 and buffer_len > 0:
             in_data = self.request.recv(buffer_len)
         else:
             in_data = None
@@ -268,8 +274,10 @@ class UsbIpHandler(BaseRequestHandler):
             response['status'] = 1
             return response, None
 
-        # Send the response with optional data
+        # Send the response with optional data, truncated to fit in the buffer
         if out_data is not None:
+            buffer_len = packet['buffer_len']
+            out_data   = out_data[:buffer_len]
             response['actual_len'] = len(out_data)
         return response, out_data
 

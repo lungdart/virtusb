@@ -1,7 +1,8 @@
 """ USB Virtual Controller """
-#pylint: disable=R0205,C0326
+#pylint: disable=R0205,C0326,W1202
 
-from virtusb import packets
+from virtusb import packets, log
+LOGGER = log.get_logger()
 
 # USB Direction
 HOST_TO_DEVICE            = 0x00
@@ -28,15 +29,20 @@ class VirtualController(object):
 
     def get_device(self, device_id):
         """ Fetch the device by it's id """
-        idx = device_id - 1
-        assert idx >= len(self.devices)
-        return self.devices[idx]
+        bus_no     = device_id >> 16
+        device_no  = device_id & 0x0000ffff
+        device_idx = device_no - 1
+        assert bus_no == self.bus_no
+        assert device_idx >= 0
+        assert device_idx < len(self.devices)
+
+        return self.devices[device_idx]
 
     def handle(self, packet, data=None):
         """ Handle submitted URBs """
         # Request the device to handle non control requests
         device_id = packet['dev_id']
-        device    = self.devices[device_id]
+        device    = self.get_device(device_id)
         if packet['endpoint'] != 0:
             return device.handle(packet, data)
 
@@ -47,20 +53,25 @@ class VirtualController(object):
         value    = setup['wValue']
         if req_type == DEVICE_TO_HOST and request == USB_REQ_GET_DESCRIPTOR:
             if value == USB_DEVICE_DESCRIPTOR:
+                LOGGER.debug('Descriptor request: DEVICE')
                 return self.pack_device_descriptor(device)
             if value == USB_CONFIG_DESCRIPTOR:
+                LOGGER.debug('Descriptor request: CONFIGURATION')
                 return self.pack_config_descriptor(device)
 
         # Handle get status
         if req_type == DEVICE_TO_HOST and request == USB_REQ_GET_STATUS:
+            LOGGER.debug('Status request')
             return self.pack_status(device)
 
         # Handle setting configuration
         if req_type == HOST_TO_DEVICE and request == USB_REQ_SET_CONFIGURATION:
+            LOGGER.debug('Set configuration request: {}'.format(value))
             device.set_configuration(value)
             return None
 
-        # TODO: Unhandled request
+        # Report unhandled requests
+        LOGGER.error('Unhandled request')
         return self.unhandled_request(setup)
 
     @staticmethod
@@ -83,13 +94,15 @@ class VirtualController(object):
             iSerialNumber      = descriptor.iSerialNumber,
             bNumConfigurations = descriptor.bNumConfigurations
         )
-        return packet
+        return packet.pack()
 
     @staticmethod
     def pack_config_descriptor(device):
         """ Pack the devices configuration descriptor with interfaces and endpoints """
-        config = device.active_config
+        LOGGER.debug('Descriptor request: CONFIGURATION')
+
         # Build each interface, including their endpoints
+        config = device.active_config
         iface_packets = []
         for iface in config.interfaces:
             # Build each interfaces endpoints
@@ -124,7 +137,8 @@ class VirtualController(object):
             bmAttributes        = config.bmAttributes,
             bMaxPower           = config.bMaxPower,
             interfaces          = iface_packets)
-        return packet
+
+        return packet.pack()
 
     @staticmethod
     def pack_status(device): #pylint: disable=unused-argument
@@ -134,7 +148,6 @@ class VirtualController(object):
 
     def unhandled_request(self, setup): #pylint: disable=unused-argument
         """ Unhandled request for logging purposes """
-        # TODO: Logging
         return None
 
 class VirtualDevice(object):

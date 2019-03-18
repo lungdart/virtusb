@@ -67,7 +67,6 @@ class UsbIpClient(object):
         assert response['version'] == request['version']
         assert response['command'] == packets.OP_REP_DEVLIST
         assert response['status']  == 0
-        print("!!!!", repr(response))
 
         devices = []
         for _ in range(response['device_count']):
@@ -135,6 +134,7 @@ class UsbIpClient(object):
             size = response['actual_len']
             if size > 0:
                 response_data = self._recv(size)
+                assert len(response_data) <= buffer_len
 
         return response, response_data
 
@@ -154,7 +154,7 @@ class UsbIpClient(object):
             # Make import response
             response = self._import_handler(bus_id)
             new_port = len(self._ports)
-            device_id = (response['bus_id'] << 16) + response['device_no']
+            device_id = (response['bus_no'] << 16) + response['device_no']
             self._ports.append({'port': new_port, 'device_id': device_id})
 
             # The real USBIP requests descriptors after attaching. The requests
@@ -172,17 +172,17 @@ class UsbIpClient(object):
             kwargs['buffer_len'] = 64
             self._submit_handler(**kwargs)
             kwargs['buffer_len'] = 18
-            response, data = self._submit_handler(**kwargs)
-            dev_desc = packets.DeviceDescriptor.from_raw(data)
+            response, data       = self._submit_handler(**kwargs)
+            dev_desc             = packets.DeviceDescriptor.from_raw(data)
             self._ports[new_port]['device_descriptor'] = dev_desc
 
-            kwargs['value'] = 0x0200
+            kwargs['value']      = 0x0200
             kwargs['buffer_len'] = 9
-            response, data = self._submit_handler(**kwargs)
-            conf_desc = packets.DeviceDescriptor.from_raw(data, partial=True)
+            response, data       = self._submit_handler(**kwargs)
+            conf_desc = packets.ConfigurationDescriptor.from_raw(data, partial=True)
             kwargs['buffer_len'] = conf_desc['wTotalLength']
-            response, data = self._submit_handler(**kwargs)
-            conf_desc_full = packets.DeviceDescriptor.from_raw(data)
+            response, data       = self._submit_handler(**kwargs)
+            conf_desc_full       = packets.ConfigurationDescriptor.from_raw(data)
             self._ports[new_port]['config_descriptor'] = conf_desc_full
 
             # Create a driver instance for this device on it's attached port
@@ -193,14 +193,22 @@ class UsbIpClient(object):
                 self._ports[new_port]['driver'] = DummyDriver()
 
             # Set the configuration
-            self._submit_handler(port=new_port, endpoint=0, direction=0x0001,request=0x09)
+            self._submit_handler(
+                port           = new_port,
+                endpoint       = 0,
+                direction      = 0x0001,
+                transfer_flags = 0x00000000,
+                buffer_len     = 0,
+                request_type   = 0,
+                request        = 0x09,
+                value          = conf_desc_full['bConfigurationValue'])
+            return new_port
 
-        # Leave the socket open for further device requests
+        # Socket is kept alive after attaching, so only close it if something
+        #  goes wrong
         except Exception: #pylint: disable=broad-except
             self._close()
-            traceback.print_exc()
-
-        return new_port
+            raise
 
     def detach(self, port):
         """ Detach a port from the client """
