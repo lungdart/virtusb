@@ -1,6 +1,6 @@
 """ USBIP TCP Server """
 #pylint: disable=C0326,W1202,R0205
-
+from __future__ import print_function
 import socket
 import signal
 import struct
@@ -37,6 +37,7 @@ class UsbIpServer(object):
 
         # Configure the socket server
         TCPServer.allow_reuse_address = True
+        TCPServer.timeout = RECV_TIMEOUT_SEC
         self.server = TCPServer((bind_ip, bind_port), UsbIpHandler)
         self.server.controller = self.controller
         self.server.keep_alive = threading.Event()

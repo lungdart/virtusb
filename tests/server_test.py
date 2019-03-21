@@ -36,6 +36,7 @@ def test_list_single():
 
     assert len(devices) == 1
 
+
 #@pytest.mark.skip(reason="debugging...")
 def test_list_multi():
     """ Test listing all devices on a controller with multiple devices """
