@@ -23,7 +23,7 @@ def get_device_path(args):
 def get_device_main(file):
     """ Loads the given driver """
     module = importlib.import_module(file)
-    callback = module.__main__.main
+    callback = module.main
 
     return callback
 
