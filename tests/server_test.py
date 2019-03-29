@@ -64,8 +64,8 @@ def test_attach_single():
     client = UsbIpClient()
 
     try:
-        port = client.attach('1-1')
+        device = client.attach('1-1')
     finally:
         server.stop()
 
-    assert port == 0
+    assert device['port'] == 0

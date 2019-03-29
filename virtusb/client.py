@@ -208,7 +208,7 @@ class UsbIpClient(object):
                 request_type   = 0,
                 request        = 0x09,
                 value          = conf_desc_full['bConfigurationValue'])
-            return new_port
+            return self._ports[new_port]
 
         # Socket is kept alive after attaching, so only close it if something
         #  goes wrong
