@@ -1,8 +1,8 @@
 """ Test base USBIP server components """
 import pytest #pylint: disable=unused-import
 from virtusb.server import UsbIpServer
+from virtusb.client import UsbIpClient
 from virtusb.controller import VirtualController
-from tests.mocking.client import UsbIpClient
 from tests.mocking.dummy_device import DummyDevice
 
 #@pytest.mark.skip(reason="debugging...")

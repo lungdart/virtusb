@@ -1,10 +1,15 @@
-""" Mock client to test the USBIP server code base against """
+""" Client to test the USBIP server code base against """
 #pylint: disable=C0326,R0205
 import copy
 import socket
 import traceback
 from virtusb import packets
-from tests.mocking.dummy_device import DummyDriver
+
+class VirtualDriver(object): #pylint: disable=too-few-public-methods
+    """ Driver base class """
+    def __init__(self, client, port):
+        self.client = client
+        self.port = port
 
 class UsbIpClient(object):
     """ Fake USBIP client that has the same command set as the Linux usbip command """
@@ -186,11 +191,12 @@ class UsbIpClient(object):
             self._ports[new_port]['config_descriptor'] = conf_desc_full
 
             # Create a driver instance for this device on it's attached port
-            driver_lookup = (dev_desc['idVendor'] << 16) + dev_desc['idProduct']
+            driver_id = (dev_desc['idVendor'] << 16) + dev_desc['idProduct']
             try:
-                self._ports[new_port]['driver'] = self._drivers[driver_lookup]()
+                driver = self._drivers[driver_id]
             except KeyError:
-                self._ports[new_port]['driver'] = DummyDriver()
+                driver = VirtualDriver
+            self._ports[new_port]['driver'] = driver(self, new_port)
 
             # Set the configuration
             self._submit_handler(

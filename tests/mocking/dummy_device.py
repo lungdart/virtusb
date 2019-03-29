@@ -43,6 +43,3 @@ class DummyDevice(VirtualDevice):
     )
     def __init__(self):
         super(DummyDevice, self).__init__(self._dummy_descriptor)
-
-class DummyDriver(object): #pylint: disable=too-few-public-methods
-    """ Empty driver for the mock device """
