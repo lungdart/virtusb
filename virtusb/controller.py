@@ -156,6 +156,7 @@ class VirtualDevice(object):
         self.descriptor    = device_descriptor
         self.active_config = None
         self.speed         = 2 # Hardcoded high speed device
+        self.max_payload   = 64 # TODO: Dynamically set payload
         self.set_configuration()
 
     def _find_config_from_value(self, config_value):

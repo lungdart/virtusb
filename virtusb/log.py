@@ -46,6 +46,6 @@ logging.config.dictConfig({
     }
 })
 
-def get_logger(name=__name__):
+def get_logger(name='virtusb'):
     """ Get the logger instance """
     return logging.getLogger(name)

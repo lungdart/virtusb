@@ -194,7 +194,7 @@ class UsbIpRetSubmit(packets.BigEndian):
     fields = [
         fields.Padding(),
         fields.Padding(),
-        fields.UInt16('command',        default=USBIP_RET_SUBMIT),
+        fields.UInt16('command',      default=USBIP_RET_SUBMIT),
         fields.UInt32('seq_num',      default=0),
         fields.UInt32('dev_id',       default=0),
         fields.UInt32('direction',    default=0x00000000),
