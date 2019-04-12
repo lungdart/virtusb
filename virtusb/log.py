@@ -1,7 +1,14 @@
 """ VirtUSB package """
+#pylint: disable=C0326
 import logging
 import logging.config
 import six
+
+DEBUG    = 10
+INFO     = 20
+WARNING  = 30
+ERROR    = 40
+CRITICAL = 50
 
 # Configure the logger for custom formatting
 class ColoredFormatter(logging.Formatter):
@@ -27,25 +34,27 @@ class ColoredFormatter(logging.Formatter):
             self._style._fmt = fmt #pylint: disable=protected-access
         return super(ColoredFormatter, self).format(record)
 
-# Set the logging configuration to use the custom formatter
-logging.config.dictConfig({
-    'version':1,
-    'formatters': {
-        'default': {'()': ColoredFormatter}
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'default',
-            'level': logging.DEBUG
-        }
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': logging.DEBUG
-    }
-})
+def gen_name(name=None):
+    """ Converts the given name into a logging hierarchy name """
+    if not name:
+        name = 'virtusb'
+    else:
+        name = 'virtusb.' + str(name)
+    return name
 
-def get_logger(name='virtusb'):
-    """ Get the logger instance """
-    return logging.getLogger(name)
+def get_logger(name=None):
+    """ Get the packages logger """
+    logger = logging.getLogger(gen_name(name))
+
+    # Configure logger handler if it's not already
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler()
+        handler.setFormatter(ColoredFormatter())
+        logger.addHandler(handler)
+
+    return logger
+
+def set_level(level):
+    """ Set the default verbosity level of the root logger """
+    logger = get_logger()
+    logger.setLevel(level)

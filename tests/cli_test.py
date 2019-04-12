@@ -2,7 +2,8 @@
 #pylint: disable=C0326,R0205
 from __future__ import unicode_literals, print_function
 import pytest #pylint: disable=unused-import
-from virtusb import cli
+from virtusb import  cli
+from tests.mocking.logging import configure #pylint:disable=unused-import
 from tests.mocking.dummy_device import DummyDevice
 
 class ExtendedParser(cli.Parser):

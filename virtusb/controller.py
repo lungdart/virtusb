@@ -1,7 +1,6 @@
 """ USB Virtual Controller """
 #pylint: disable=R0205,C0326,W1202
-
-from virtusb import packets, log
+from virtusb import log, packets
 LOGGER = log.get_logger()
 
 # USB Direction

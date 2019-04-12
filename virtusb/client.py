@@ -2,7 +2,6 @@
 #pylint: disable=C0326,R0205
 import copy
 import socket
-import traceback
 from virtusb import packets
 
 class VirtualDriver(object): #pylint: disable=too-few-public-methods
