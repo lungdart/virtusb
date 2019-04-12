@@ -1,10 +1,13 @@
 """ Command line argument parser """
 #pylint: disable=C0326,R0205
 from __future__ import unicode_literals
+import os
 import argparse
 from virtusb import log
 from virtusb.server import UsbIpServer
 from virtusb.controller import VirtualController
+
+LOGGER = log.get_logger()
 
 class Parser(object): #pylint: disable=too-few-public-methods
     """ Argument parser extension """
@@ -39,5 +42,9 @@ def server_factory(device, count):
     controller = VirtualController()
     controller.devices = [device() for _ in range(count)]
     server = UsbIpServer(controller)
+
+    if os.getuid() == 0:
+        #pylint: disable=line-too-long
+        LOGGER.warning('Super user permissions required for usbip. sudo will be used to escalate permissions when needed. You may be prompted for a password depending on your system configuration.')
 
     return server

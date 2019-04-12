@@ -78,7 +78,7 @@ class UsbIpServer(object):
         # Attach the device. Failing to attach a valid device should be treated
         #  as a fatal error since the end user may have to manually configure
         #  their environment back to a clean state
-        args = ['usbip', 'attach', '-r', '127.0.0.1', '-b', device_id]
+        args = ['sudo', 'usbip', 'attach', '-r', '127.0.0.1', '-b', device_id]
         process = Popen(args, stdout=PIPE, stderr=PIPE)
         out, err = process.communicate()
         code = process.returncode
@@ -96,7 +96,7 @@ class UsbIpServer(object):
 
         # Detach the port. There are normal reasons why a device may fail to
         #  detach, but for safety, warn the user when it occurs.
-        args = ['usbip', 'datach', '-p', port]
+        args = ['sudo', 'usbip', 'datach', '-p', port]
         process = Popen(args, stdout=PIPE, stderr=PIPE)
         out, err = process.communicate()
         code = process.returncode
@@ -108,7 +108,8 @@ class UsbIpServer(object):
     def attach_all(self):
         """ Attach all devices with USBIP """
         for idx in range(len(self.controller.devices)):
-            device_id = '{}-{}'.format(self.controller.bus_no, idx)
+            device_no = idx + 1
+            device_id = '{}-{}'.format(self.controller.bus_no, device_no)
             self.attach(device_id)
 
     def detach_all(self):
