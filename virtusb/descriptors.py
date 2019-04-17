@@ -11,7 +11,7 @@ class Device(object):
         self.bDescriptorType = 0x01
 
         # TODO: Unsupported values
-        self.bcdUSB         = 0x1001
+        self.bcdUSB         = 0x0101
         self.bMaxPacketSize = 64
         self.iManufacturer  = 0
         self.iProduct       = 0

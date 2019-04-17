@@ -1,11 +1,9 @@
 """ USB Virtual Controller """
-#pylint: disable=R0205,C0326,W1202
+#pylint: disable=R0205,C0326
+from __future__ import unicode_literals
+import struct
 from virtusb import log, packets
 LOGGER = log.get_logger()
-
-# USB Direction
-HOST_TO_DEVICE            = 0x00
-DEVICE_TO_HOST            = 0x80
 
 # USB Request codes
 USB_REQ_GET_STATUS        = 0x00
@@ -13,12 +11,22 @@ USB_REQ_GET_DESCRIPTOR    = 0x06
 USB_REQ_SET_DESCRIPTOR    = 0x07
 USB_REQ_GET_CONFIGURATION = 0x08
 USB_REQ_SET_CONFIGURATION = 0x09
+USB_REQ_SET_INTERFACE     = 0x0b
 
 # USB Descriptor values
 USB_DEVICE_DESCRIPTOR   = 0x0100
 USB_CONFIG_DESCRIPTOR   = 0x0200
 
+# USB Direction checks
+def host_to_device(request_type):
+    """ Check if the direction is host to device """
+    return (request_type & 0x80) == 0x00
 
+def device_to_host(request_type):
+    """ Check if the direction is device to host """
+    return (request_type & 0x80) == 0x80
+
+# USB Virtual Components
 class VirtualController(object):
     """ Virtual USB Controller """
     def __init__(self, bus_no=1, path='/sys/devices/pci0000:00/0000:00:14.0/usb1/'):
@@ -39,6 +47,7 @@ class VirtualController(object):
 
     def handle(self, packet, data=None):
         """ Handle submitted URBs """
+        #pylint: disable=too-many-return-statements
         # Request the device to handle non control requests
         device_id = packet['dev_id']
         device    = self.get_device(device_id)
@@ -50,7 +59,7 @@ class VirtualController(object):
         req_type = setup['bmRequestType']
         request  = setup['bRequest']
         value    = setup['wValue']
-        if req_type == DEVICE_TO_HOST and request == USB_REQ_GET_DESCRIPTOR:
+        if device_to_host(req_type) and request == USB_REQ_GET_DESCRIPTOR:
             if value == USB_DEVICE_DESCRIPTOR:
                 LOGGER.debug('Descriptor request: DEVICE')
                 return self.pack_device_descriptor(device)
@@ -59,14 +68,20 @@ class VirtualController(object):
                 return self.pack_config_descriptor(device)
 
         # Handle get status
-        if req_type == DEVICE_TO_HOST and request == USB_REQ_GET_STATUS:
+        if device_to_host(req_type) and request == USB_REQ_GET_STATUS:
             LOGGER.debug('Status request')
             return self.pack_status(device)
 
         # Handle setting configuration
-        if req_type == HOST_TO_DEVICE and request == USB_REQ_SET_CONFIGURATION:
-            LOGGER.debug('Set configuration request: {}'.format(value))
+        if host_to_device(req_type) and request == USB_REQ_SET_CONFIGURATION:
+            LOGGER.debug('Set configuration request: %i', value)
             device.set_configuration(value)
+            return None
+
+        if host_to_device(req_type) and request == USB_REQ_SET_INTERFACE:
+            interface = value >> 1
+            LOGGER.debug('Set interface request: %i', interface)
+            device.set_interface(interface)
             return None
 
         # Report unhandled requests
@@ -140,20 +155,23 @@ class VirtualController(object):
         return packet.pack()
 
     @staticmethod
-    def pack_status(device): #pylint: disable=unused-argument
+    def pack_status(device):
         """ Pack a devices status """
+        #pylint: disable=unused-argument
         # TODO: Implement
         return b''
 
-    def unhandled_request(self, setup): #pylint: disable=unused-argument
+    def unhandled_request(self, setup):
+        #pylint: disable=no-self-use
         """ Unhandled request for logging purposes """
-        return None
+        LOGGER.debug('%s', repr(setup))
 
 class VirtualDevice(object):
     """ Virtual USB Device """
     def __init__(self, device_descriptor):
         self.descriptor    = device_descriptor
         self.active_config = None
+        self.active_iface  = None
         self.speed         = 2 # Hardcoded high speed device
         self.max_payload   = 64 # TODO: Dynamically set payload
         self.set_configuration()
@@ -163,6 +181,16 @@ class VirtualDevice(object):
         for config in self.descriptor.configurations:
             if config.bConfigurationValue == config_value:
                 return config
+        return None
+
+    def _find_iface_from_value(self, iface_value):
+        """ Find an interface descriptor instance from it's value """
+        if self.active_config is None:
+            raise RuntimeError('Attempted to look for interface before configuration was set')
+
+        for iface in self.active_config.interfaces:
+            if iface.bInterfaceNumber == iface_value:
+                return iface
         return None
 
     def set_configuration(self, config_value=None):
@@ -176,6 +204,21 @@ class VirtualDevice(object):
         if config is None:
             raise RuntimeError('Invalid config value')
         self.active_config = config
+
+    def set_interface(self, iface_value=None):
+        """ Set the active interface to the given value """
+        if self.active_config is None:
+            LOGGER.warning('Request to set interface before setting configuration. Using first configuration instance.')
+            self.set_configuration()
+
+        if iface_value is None:
+            self.active_iface = self.active_config.interfaces[0]
+            return
+
+        interface = self._find_iface_from_value(iface_value)
+        if interface is None:
+            raise RuntimeError('Invalid interface value')
+        self.active_iface = interface
 
     def handle(self, packet, data=None):
         """ Override this method to control how a USB device handles submit requests """
