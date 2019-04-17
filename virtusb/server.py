@@ -281,6 +281,8 @@ class UsbIpHandler(BaseRequestHandler):
             buffer_len = packet['buffer_len']
             out_data   = out_data[:buffer_len]
             response['actual_len'] = len(out_data)
+        else:
+            response['actual_len'] = packet['buffer_len']
         return response, out_data
 
     def pkt_usbip_cmd_unlink(self, packet):
