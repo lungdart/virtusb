@@ -96,7 +96,7 @@ class UsbIpServer(object):
 
         # Detach the port. There are normal reasons why a device may fail to
         #  detach, but for safety, warn the user when it occurs.
-        args = ['sudo', 'usbip', 'datach', '-p', port]
+        args = ['sudo', 'usbip', 'detach', '-p', str(port)]
         process = Popen(args, stdout=PIPE, stderr=PIPE)
         out, err = process.communicate()
         code = process.returncode
@@ -114,7 +114,7 @@ class UsbIpServer(object):
 
     def detach_all(self):
         """ Detach all devices with USBIP """
-        for port,_ in self.ports:
+        for port in self.ports:
             self.detach(port)
 
 class UsbIpHandler(BaseRequestHandler):
