@@ -1,6 +1,7 @@
 """ USBIP TCP Server """
 #pylint: disable=C0326,W1202,R0205
 from __future__ import print_function
+import copy
 import socket
 import signal
 import struct
@@ -55,15 +56,18 @@ class UsbIpServer(object):
 
         # Detach all devices
         self.detach_all()
+        LOGGER.debug('All devices detached')
 
         # Shutdown the server
         self.should_stop.set()
         self.server.keep_alive.clear()
         self.server.server_close()
+        LOGGER.debug('TCP Socket closed')
 
         # Wait for the thread to finish
         self.thread.join()
         self.thread = None
+        LOGGER.debug('Server thread joined')
 
     def attach(self, device_id):
         """ Attach a single device with USBIP by device id """
@@ -104,6 +108,14 @@ class UsbIpServer(object):
             msg = 'Error while detaching port {} ({})'.format(port, code)
             msg += '\n{}\n{}'.format(out, err)
             LOGGER.warning(msg)
+        else:
+            parts = self.ports[port].split('-')
+            bus_no = int(parts[0])
+            dev_no = int(parts[1])
+            device_id =  (bus_no << 16) | dev_no
+            device = self.controller.get_device(device_id)
+            device.stop()
+            del self.ports[port]
 
     def attach_all(self):
         """ Attach all devices with USBIP """
@@ -114,7 +126,9 @@ class UsbIpServer(object):
 
     def detach_all(self):
         """ Detach all devices with USBIP """
-        for port in self.ports:
+        # Copy ports so that the sub-function can delete while enumerating
+        ports = copy.deepcopy(list(self.ports.keys()))
+        for port in ports:
             self.detach(port)
 
 class UsbIpHandler(BaseRequestHandler):
